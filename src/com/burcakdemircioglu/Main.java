@@ -4,14 +4,12 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.StringJoiner;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class Main {
 
+  public static Map<Slice, List<List<Character>>> sliceObjectToSliceMap = new HashMap<>();
 
   public static void main(String[] args) {
     List<Slice> slices = new ArrayList<>();
@@ -20,13 +18,28 @@ public class Main {
 
     Slice slice = new Slice(0, data.rowCount - 1, 0, data.columnCount - 1);
 
-    while (slice.isValid(data)) {
-    List<List<Character>> newSlice = recurse(slices, data, slice);
-//      slice.x1=newSlice.size();
-      slice.y1=newSlice.get(0).size();
-    }
+    while (slice.isSizeValid(data)) {
+//      System.out.println("slice: " + slice);
 
-    
+      List<List<Character>> newSlice = sliceObjectToSliceMap.get(slice);
+      if (newSlice == null) {
+        newSlice = recurse(slices, data, slice);
+      }
+//      slice.x1=newSlice.size();
+
+//      System.out.println(new StringJoiner(", ")
+//                           .add("newSlice=" + newSlice)
+//                           .toString());
+      if (newSlice.isEmpty()) {
+        break;
+      }
+      slice.y1 += newSlice.get(0).size();
+    }
+    System.out.println("sliceCount: " + slices.size());
+    System.out.println(new StringJoiner(", ")
+                         .add("slices=" + slices)
+                         .toString());
+
     System.out.println(new StringJoiner(", ")
                          .add("visited=" + data.visited)
                          .toString());
@@ -35,8 +48,10 @@ public class Main {
 
   public static List<List<Character>> recurse(List<Slice> slices, Data data, Slice slice) {
 
-    if (slice.getArea() < data.minCount * 2) {
-      return null;
+//    System.out.println("recurse slice: " + slice);
+
+    if (!slice.isSizeValid(data)) {
+      return new ArrayList<>();
     }
 
     if (isValid(data, slice)) {
@@ -45,15 +60,24 @@ public class Main {
       return getSliceMatrix(data, slice);
     }
 
-    List<List<Character>> newSlice = recurse(slices, data, new Slice(slice.x1, slice.x2, slice.y1, slice.y2 - 1));//kolon kesme
-
+    Slice newSliceLeft = new Slice(slice.x1, slice.x2, slice.y1, slice.y2 - 1);
+    List<List<Character>> newSlice = sliceObjectToSliceMap.get(newSliceLeft);
     if (newSlice == null) {
-      newSlice = recurse(slices, data, new Slice(slice.x1, slice.x2 - 1, slice.y1, slice.y2));//row kesme
+      newSlice = recurse(slices, data, newSliceLeft);//kolon kesme
+      sliceObjectToSliceMap.put(slice, newSlice);
+    }
+
+    if (newSlice.isEmpty()) {
+      Slice newSliceUp = new Slice(slice.x1, slice.x2 - 1, slice.y1, slice.y2);
+      newSlice = sliceObjectToSliceMap.get(newSliceUp);
+      if (newSlice == null) {
+        newSlice = recurse(slices, data, new Slice(slice.x1, slice.x2 - 1, slice.y1, slice.y2));//row kesme
+        sliceObjectToSliceMap.put(slice, newSlice);
+      }
     }
 
     return newSlice;
   }
-
 
   public static void updateVisited(Data data, Slice slice) {
     for (int i = slice.x1; i <= slice.x2; i++) {
@@ -106,7 +130,7 @@ public class Main {
 //    return true;
   }
 
-  private static List<List<Character>> getSliceMatrix( Data data, Slice slice) {
+  private static List<List<Character>> getSliceMatrix(Data data, Slice slice) {
     return data.matrix.stream()
                       .skip(slice.x1)
                       .limit(slice.x2 - slice.x1 + 1)
@@ -131,7 +155,7 @@ public class Main {
   public static Data getData() {
     String filePath = new File("").getAbsolutePath();
 
-    try (BufferedReader br = new BufferedReader(new FileReader(filePath + "/a_example.in"))) {
+    try (BufferedReader br = new BufferedReader(new FileReader(filePath + "/c_medium.in"))) {
 
       String sCurrentLine = br.readLine();
 
@@ -212,7 +236,10 @@ public class Main {
       this.y2 = y2;
     }
 
-    public boolean isValid(Data data) {
+    public boolean isSizeValid(Data data) {
+      if (y2 < y1 || x2 < x1) {
+        return false;
+      }
       if (getArea() < data.minCount * 2) {
         return false;
       }
@@ -221,6 +248,48 @@ public class Main {
 
     public int getArea() {
       return (y2 - y1 + 1) * (x2 - x1 + 1);
+    }
+
+    @Override
+    public String toString() {
+      return new StringJoiner(", ", Slice.class.getSimpleName() + "[", "]")
+        .add("x1=" + x1)
+        .add("x2=" + x2)
+        .add("y1=" + y1)
+        .add("y2=" + y2)
+        .toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+
+      Slice slice = (Slice) o;
+
+      if (x1 != slice.x1) {
+        return false;
+      }
+      if (x2 != slice.x2) {
+        return false;
+      }
+      if (y1 != slice.y1) {
+        return false;
+      }
+      return y2 == slice.y2;
+    }
+
+    @Override
+    public int hashCode() {
+      int result = x1;
+      result = 31 * result + x2;
+      result = 31 * result + y1;
+      result = 31 * result + y2;
+      return result;
     }
 
   }
